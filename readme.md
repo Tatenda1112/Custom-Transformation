@@ -19,3 +19,4 @@
 15. YeoJohnsonTransformer
 16. LogTransformer
 17. KBinsDiscretizer
+18. And Others
