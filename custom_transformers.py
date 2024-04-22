@@ -353,8 +353,8 @@ class winsorizer(BaseEstimator, TransformerMixin):
         if self.variables is not None:
             self.numeric_columns_ = pd.Index(self.variables)
         else:
-            numeric_columns = X.select_dtypes(include=[np.number]).columns
-            self.numeric_columns_ = numeric_columns 
+            numeric_columns_ = X.select_dtypes(include=[np.number]).columns
+            self.numeric_columns_ = numeric_columns_
             
         self.q1 = X[self.numeric_columns_].quantile(self.lower_quantile)
         self.q3 = X[self.numeric_columns_].quantile(self.upper_quantile)
@@ -473,8 +473,8 @@ class MeanMedianImputer(BaseEstimator, TransformerMixin):
         if self.variables is not None:
             self.numeric_columns_ = pd.Index(self.variables)
         else:
-            numeric_columns = X.select_dtypes(include=[np.number]).columns
-            self.numeric_columns_ = numeric_columns
+            numeric_columns_ = X.select_dtypes(include=[np.number]).columns
+            self.numeric_columns_ = numeric_columns_
         self.mean_ = X[self.numeric_columns_].mean()
         self.median_ = X[self.numeric_columns_].median()
         return self
@@ -1059,7 +1059,7 @@ class DropConstantFeatures(BaseEstimator, TransformerMixin):
         self : object
             Returns an instance of self.
         """
-        self.columns_to_drop = X.columns[X.apply(lambda col: col.value_counts(normalize=True).values[0] >= self.threshold)].tolist()
+        self.columns_to_drop_ = X.columns[X.apply(lambda col: col.value_counts(normalize=True).values[0] >= self.threshold)].tolist()
         return self
     
     def transform(self, X: pd.DataFrame, y=None):
