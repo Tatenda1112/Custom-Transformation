@@ -74,6 +74,7 @@ class StandardScaler(BaseEstimator, TransformerMixin):
 
     def __init__(self, variables: list | None = None):
         self.variables = variables
+        self.errors_ = None
 
     def fit(self, X: pd.DataFrame, y=None):
         """Fit the StandardScaler to X.
@@ -206,6 +207,7 @@ class MinMaxScaler(BaseEstimator, TransformerMixin):
         """
         self.feature_range = feature_range
         self.variables = variables
+        self.errors_ = None
     
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -334,6 +336,7 @@ class winsorizer(BaseEstimator, TransformerMixin):
         self.upper_quantile = upper_quantile
         self.variables = variables
         self.K = K
+        self.errors_=None
 
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -454,6 +457,7 @@ class MeanMedianImputer(BaseEstimator, TransformerMixin):
         """
         self.imputation_type = imputation_type
         self.variables = variables
+        self.errors_ =None
         
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -570,6 +574,7 @@ class categoricalImputer(BaseEstimator, TransformerMixin):
         """
         self.variables = variables
         self.strategy = strategy
+        self.errors_=None
         
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -677,6 +682,7 @@ class count_frequency_encoder(BaseEstimator, TransformerMixin):
         variables (list|None): List of column names to encode. If None, all categorical columns will be encoded.
         """
         self.variables = variables
+        self.errors_ =None
 
     def fit(self, X, y=None):
         """
@@ -792,6 +798,7 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
         """
         self.variables = variables
         self.categorical_variables = {}
+        self.errors_=None
     
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -916,6 +923,7 @@ class OrdinalEncoder(BaseEstimator, TransformerMixin):
         self.variables = variables
         self.mapping = mapping
         self.ordinal_mapping = {}
+        self.errors_= None
     
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -1043,6 +1051,7 @@ class DropConstantFeatures(BaseEstimator, TransformerMixin):
         threshold (float, optional): The threshold value to consider a feature as constant. Default is 0.9.
         """
         self.threshold = threshold
+        self.errors_ =None
     
     def fit(self, X, y=None):
         """
@@ -1155,6 +1164,7 @@ class HighCardinalityImputer(BaseEstimator, TransformerMixin):
         self.variables = variables
         self.fill_value = fill_value
         self.categories_to_replace = {}
+        self.errors_ =None
     
     def fit(self, X, y=None):
         """
@@ -1259,6 +1269,7 @@ class DropDuplicateFeatures(BaseEstimator, TransformerMixin):
         Initialize DropDuplicateFeatures.
         """
         self.duplicate_columns = []
+        self.errors_ =None
     
     def fit(self, X, y=None):
         """
@@ -1384,6 +1395,7 @@ class DropCorrelatedFeatures(BaseEstimator, TransformerMixin):
         """
         self.threshold = threshold
         self.correlated_features = []
+        self.errors_ =None
     
     def fit(self, X: pd.DataFrame, y=None):
         """
@@ -1449,3 +1461,317 @@ class DropCorrelatedFeatures(BaseEstimator, TransformerMixin):
                     correlated_features.add(colname)
         
         return list(correlated_features)
+
+class BoxCoxTransformer(BaseEstimator, TransformerMixin):
+    """
+    Custom transformer for Box-Cox transformation.
+
+    Parameters:
+    -----------
+    lambda_range : tuple, optional (default=(-3.0, 3.0))
+        The range of lambda values to search for during fitting.
+
+    Attributes:
+    -----------
+    lambda_ : float
+        The lambda value that maximizes the log-likelihood during fitting.
+    log_likelihood_ : float
+        The log-likelihood of the transformed data using the best lambda value.
+    errors_ : exception
+        Any errors encountered during fitting or transformation.
+
+    Methods:
+    --------
+    fit(X, y=None):
+        Fit the BoxCoxTransformer to the data.
+    
+    transform(X):
+        Transform the input data using the best lambda value found during fitting.
+
+    _boxcox_transform(X, lambda_):
+        Apply the Box-Cox transformation to the input data using the specified lambda value.
+
+    _log_likelihood(X):
+        Calculate the log-likelihood of the transformed data.
+
+    """
+
+    def __init__(self, lambda_range=(-3.0, 3.0)):
+        """
+        Initialize the BoxCoxTransformer.
+
+        Parameters:
+        -----------
+        lambda_range : tuple, optional (default=(-3.0, 3.0))
+            The range of lambda values to search for during fitting.
+        """
+        self.lambda_range = lambda_range
+        self.lambda_ = None
+        self.log_likelihood_ = None
+        self.errors_ = None
+        
+    def fit(self, X, y=None):
+        """
+        Fit the BoxCoxTransformer to the data.
+
+        Parameters:
+        -----------
+        X : array-like, shape (n_samples, n_features)
+            The input data.
+ 
+        y : array-like, shape (n_samples,), optional (default=None)
+            The target labels.
+
+        Returns:
+        --------
+        self : object
+            Returns self.
+        """
+        try:
+            best_lambda = None
+            best_log_likelihood = float('-inf')
+
+            for lambda_value in np.linspace(*self.lambda_range, num=100):
+                transformed_data = self._boxcox_transform(X, lambda_value)
+                log_likelihood = self._log_likelihood(transformed_data)
+
+                if log_likelihood > best_log_likelihood:
+                    best_log_likelihood = log_likelihood
+                    best_lambda = lambda_value
+
+            self.lambda_ = best_lambda
+            self.log_likelihood_ = best_log_likelihood
+        except Exception as e:
+            self.errors_ = e
+        return self
+   
+    def transform(self, X):
+        """
+        Transform the input data using the best lambda value found during fitting.
+
+        Parameters:
+        -----------
+        X : array-like, shape (n_samples, n_features)
+            The input data.
+
+        Returns:
+        --------
+        X_transformed : array-like, shape (n_samples, n_features)
+            The transformed data.
+        """
+        try:
+            return self._boxcox_transform(X, self.lambda_)
+        except Exception as e:
+            self.errors_ = e
+            return None
+   
+    def _boxcox_transform(self, X, lambda_):
+        """
+        Apply the Box-Cox transformation to the input data using the specified lambda value.
+
+        Parameters:
+        -----------
+        X : array-like, shape (n_samples, n_features)
+            The input data.
+
+        lambda_ : float
+            The lambda value for the Box-Cox transformation.
+
+        Returns:
+        --------
+        transformed_data : array-like, shape (n_samples, n_features)
+            The transformed data.
+        """
+        try:
+            if lambda_ == 0:
+                return np.log(X)
+            else:
+                return (X**lambda_ - 1) / lambda_
+        except Exception as e:
+            self.errors_ = e
+            return None
+   
+    def _log_likelihood(self, X):
+        """
+        Calculate the log-likelihood of the transformed data.
+
+        Parameters:
+        -----------
+        X : array-like, shape (n_samples, n_features)
+            The transformed data.
+
+        Returns:
+        --------
+        log_likelihood : float
+            The log-likelihood of the transformed data.
+        """
+        try:
+            n = X.shape[0]
+            if self.lambda_ is None or self.lambda_ == 0:
+                return -n / 2 * (1 + np.log(2 * np.pi) + np.log(np.mean(X ** 2)))
+            else:
+                return n / 2 * (np.log(self.lambda_ / (2 * np.pi)) + (self.lambda_ - 1) * np.mean(np.log(X)))
+        except Exception as e:
+            self.errors_ = e
+            return None
+
+
+class YeoJohnsonTransformer(BaseEstimator, TransformerMixin):
+    """
+    Custom transformer for Yeo-Johnson transformation.
+
+    Parameters:
+    -----------
+    lambda_range : tuple, optional (default=(-1.0, 2.0))
+        The range of lambda values to search for during fitting.
+
+    Attributes:
+    -----------
+    lambda_ : float
+        The lambda value that maximizes the log-likelihood during fitting.
+    log_likelihood_ : float
+        The log-likelihood of the transformed data using the best lambda value.
+    errors_ : exception
+        Any errors encountered during fitting or transformation.
+
+    Methods:
+    --------
+    fit(X, y=None):
+        Fit the YeoJohnsonTransformer to the data.
+    
+    transform(X):
+        Transform the input data using the best lambda value found during fitting.
+
+    _yeo_johnson_transform(X, lambda_):
+        Apply the Yeo-Johnson transformation to the input data using the specified lambda value.
+
+    _log_likelihood(X):
+        Calculate the log-likelihood of the transformed data.
+
+    """
+
+    def __init__(self, lambda_range=(-1.0, 2.0)):
+        """
+        Initialize the YeoJohnsonTransformer.
+
+        Parameters:
+        -----------
+        lambda_range : tuple, optional (default=(-1.0, 2.0))
+            The range of lambda values to search for during fitting.
+        """
+        self.lambda_range = lambda_range
+        self.lambda_ = None
+        self.log_likelihood_ = None
+        self.errors_ = None
+        
+    def fit(self, X, y=None):
+        """
+        Fit the YeoJohnsonTransformer to the data.
+
+        Parameters:
+        -----------
+        X : array-like, shape (n_samples, n_features)
+            The input data.
+ 
+        y : array-like, shape (n_samples,), optional (default=None)
+            The target labels.
+
+        Returns:
+        --------
+        self : object
+            Returns self.
+        """
+        try:
+            best_lambda = None
+            best_log_likelihood = float('-inf')
+
+            for lambda_value in np.linspace(*self.lambda_range, num=100):
+                transformed_data = self._yeo_johnson_transform(X, lambda_value)
+                log_likelihood = self._log_likelihood(transformed_data)
+
+                if log_likelihood > best_log_likelihood:
+                    best_log_likelihood = log_likelihood
+                    best_lambda = lambda_value
+
+            self.lambda_ = best_lambda
+            self.log_likelihood_ = best_log_likelihood
+        except Exception as e:
+            self.errors_ = e
+        return self
+   
+    def transform(self, X):
+        """
+        Transform the input data using the best lambda value found during fitting.
+
+        Parameters:
+        -----------
+        X : array-like, shape (n_samples, n_features)
+            The input data.
+
+        Returns:
+        --------
+        X_transformed : array-like, shape (n_samples, n_features)
+            The transformed data.
+        """
+        try:
+            return self._yeo_johnson_transform(X, self.lambda_)
+        except Exception as e:
+            self.errors_ = e
+            return None
+   
+    def _yeo_johnson_transform(self, X, lambda_):
+        """
+        Apply the Yeo-Johnson transformation to the input data using the specified lambda value.
+
+        Parameters:
+        -----------
+        X : array-like, shape (n_samples, n_features)
+            The input data.
+
+        lambda_ : float
+            The lambda value for the Yeo-Johnson transformation.
+
+        Returns:
+        --------
+        transformed_data : array-like, shape (n_samples, n_features)
+            The transformed data.
+        """
+        try:
+            if lambda_ == 0:
+                return np.log1p(X)
+            else:
+                if lambda_ < 0:  
+                    offset = 0.5  
+                    X += offset  
+                    transformed = ((X)**lambda_ - 1) / lambda_
+                    transformed -= transformed.min() + 1  
+                    return transformed
+                else:  
+                    return (X**lambda_ - 1) / lambda_
+        except Exception as e:
+            self.errors_ = e
+            return None
+   
+    def _log_likelihood(self, X):
+        """
+        Calculate the log-likelihood of the transformed data.
+
+        Parameters:
+        -----------
+        X : array-like, shape (n_samples, n_features)
+            The transformed data.
+
+        Returns:
+        --------
+        log_likelihood : float
+            The log-likelihood of the transformed data.
+        """
+        try:
+            n = X.shape[0]
+            if self.lambda_ is None or self.lambda_ == 0:
+                return -n / 2 * (1 + np.log(2 * np.pi) + np.log(np.mean(X ** 2)))
+            else:
+                return n / 2 * (np.log(self.lambda_ / (2 * np.pi)) + (self.lambda_ - 1) * np.mean(np.log(X)))
+        except Exception as e:
+            self.errors_ = e
+            return None
