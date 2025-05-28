@@ -850,7 +850,7 @@ class OneHotEncoder(BaseEstimator, TransformerMixin):
                     new_col_name = f'{col}_{category}'
                     data[new_col_name] = (data[col] == category).astype(int)
                 
-                # Drop the original categorical column
+               
                 data.drop(col, axis=1, inplace=True)
         except Exception as e:
             self.errors_ = e    
